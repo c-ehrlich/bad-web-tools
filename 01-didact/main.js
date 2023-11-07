@@ -22,22 +22,28 @@ function createTextElement(text) {
   }
 }
 
-function render(element, container) {
-  const dom = element.type === "TEXT_ELEMENT"
-    ? document.createTextNode(element.props.nodeValue)
-    : document.createElement(element.type);
+function createDom(fiber) {
+  const dom = fiber.type === "TEXT_ELEMENT"
+    ? document.createTextNode("")
+    : document.createElement(fiber.type);
   
-  const { children, ...otherProps } = element.props;
+  const { children, ...otherProps } = fiber.props;
   Object.assign(dom, otherProps);
 
-  // TODO: make concurrent
-  children.forEach(child => render(child, dom));
-
-  container.appendChild(dom);
+  return dom
 }
 
 // TODO: does react also use a global for this?
 let nextUnitOfWork = null;
+
+function render(element, container) {
+  nextUnitOfWork = {
+    dom: container,
+    props: {
+      children: [element],
+    }
+  }
+}
 
 function workLoop(deadline) {
   let shouldYield = false;
@@ -50,12 +56,60 @@ function workLoop(deadline) {
 
 requestIdleCallback(workLoop);
 
-function performUnitOfWork(nextUnitOfWork) {
-  // TODO: do work
+function performUnitOfWork(fiber) {
+  // add dom node
+  if (!fiber.dom) {
+    fiber.dom = createDom(fiber);
+  }
+
+  if (fiber.parent) {
+    fiber.parent.dom.appendChild(fiber.dom);
+  }
+
+  // create new fibers
+  const elements = fiber.props.children;
+  let index = 0;
+  let prevSibling = null;
+
+  while (index < elements.length) {
+    const element = elements[index];
+
+    const newFiber = {
+      type: element.type,
+      props: element.props,
+      parent: fiber,
+      dom: null,
+    }
+
+    // attach the new fibers
+    if (index === 0) {
+      fiber.child = newFiber;
+    } else {
+      prevSibling.sibling = newFiber;
+    }
+
+    prevSibling = newFiber;
+    index++;
+  }
+
+  // return next unit of work
+  if (fiber.child) {
+    return fiber.child;
+  }
+
+  let nextFiber = fiber;
+  while (nextFiber) {
+    if (nextFiber.sibling) {
+      return nextFiber.sibling
+    }
+
+    nextFiber = nextFiber.parent;
+  }
 }
 
 const Didact = {
   createElement,
+  createDom,
   render,
 }
 
