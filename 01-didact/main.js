@@ -37,11 +37,64 @@ function createDom(fiber) {
 let nextUnitOfWork = null;
 let currentRoot = null; // the last fiber tree we committed to the DOM
 let wipRoot = null; // used while building a new fiber tree
+let deletions = null;
 
 function commitRoot() {
+  deletions.forEach(commitWork); // because the new tree doesn't have the nodes that need to be deleted
   commitWork(wipRoot.child); // calls itself recursively
   currentRoot = wipRoot;
   wipRoot = null;
+}
+
+const isEvent = (key) => key.startsWith("on"); // lol
+const isProperty = (key) => key !== "children" && !isEvent(key);
+const isNew = (prev, next) => (key) => prev[key] !== next[key];
+const isGone = (_prev, next) => (key) => !(key in next);
+
+function updateDom(dom, prevProps, nextProps) {
+  // remove old or changed event listeners
+  Object.keys(prevProps)
+    .filter(isEvent)
+    .filter(
+      key =>
+        !(key in nextProps) ||
+        isNew(prevProps, nextProps)(key)
+    )
+    .forEach(name => {
+      const eventType = name.toLowerCase().substring(2);
+      dom.removeEventListener(
+        eventType,
+        prevProps[name]
+      )
+    })
+
+  // add new event listeners
+  Object.keys(nextProps)
+    .filter(isEvent)
+    .filter(isNew(prevProps, nextProps))
+    .forEach(name => {
+      const eventType = name.toLowerCase().substring(2);
+      dom.addEventListener(
+        eventType,
+        nextProps[name],
+      )
+    })
+
+  // remove old properties
+  Object.keys(prevProps)
+    .filter(isProperty)
+    .filter(isGone(prevProps, nextProps))
+    .forEach(name => {
+      dom[name] = "";
+    })
+
+  // set new or changed properties
+  Object.keys(nextProps)
+    .filter(isProperty)
+    .filter(isNew(prevProps, nextProps))
+    .forEach(name => {
+      dom[name] = nextProps[name];
+    })
 }
 
 function commitWork(fiber) {
@@ -50,7 +103,19 @@ function commitWork(fiber) {
   }
 
   const domParent = fiber.parent.dom;
-  domParent.appendChild(fiber.dom);
+  
+  if (fiber.effectTag === "PLACEMENT" && fiber.dom != null) {
+    domParent.appendChild(fiber.dom);
+  } else if (fiber.tag === "DELETION") {
+    domParent.removeChild(fiber.dom);
+  } else if (fiber.effectTag === "UPDATE" && fiber.dom != null) {
+    updateDom(
+      fiber.dom,
+      fiber.alternate.props,
+      fiber.props
+    )
+  }
+
   commitWork(fiber.child);
   commitWork(fiber.sibling);
 }
@@ -63,6 +128,7 @@ function render(element, container) {
     },
     alternate: currentRoot, // used to compare the old fiber tree to the new one
   }
+  deletions = [];
   nextUnitOfWork = wipRoot;
 }
 
@@ -114,16 +180,60 @@ function performUnitOfWork(fiber) {
 
 function reconcileChildren(wipFiber, elements) {
   let index = 0;
+  let oldFiber = wipFiber.alternate?.child;
   let prevSibling = null;
 
-  while (index < elements.length) {
+  while (
+    index < elements.length ||
+    oldFiber != null
+  ) {
+    // element is the thing we want to render to the DOM
+    // oldFiber is what we rendered last time
     const element = elements[index];
 
-    const newFiber = {
-      type: element.type,
-      props: element.props,
-      parent: wipFiber,
-      dom: null,
+    // const newFiber = {
+    //   type: element.type,
+    //   props: element.props,
+    //   parent: wipFiber,
+    //   dom: null,
+    // }
+    let newFiber = null;
+
+    const isSameType =
+      oldFiber &&
+      element &&
+      element.type === oldFiber.type;
+
+    // this is kinda naive and doesn't do key checking
+
+    if (isSameType) {
+      // update the node
+      newFiber = {
+        type: oldFiber.type,
+        props: element.props,
+        dom: oldFiber.dom,
+        parent: wipFiber,
+        alternate: oldFiber,
+        effectTag: "UPDATE",
+      }
+    }
+
+    if (element && !isSameType) {
+      // add this node
+      newFiber = {
+        type: element.type,
+        props: element.props,
+        dom: null,
+        parent: wipFiber,
+        alternate: null,
+        effectTag: "PLACEMENT",
+      }
+    }
+
+    if (oldFiber && !isSameType) {
+      // delete the oldFiber's node
+      oldFiber.effectTag = "DELETION";
+      deletions.push(oldFiber);
     }
 
     // attach the new fibers
