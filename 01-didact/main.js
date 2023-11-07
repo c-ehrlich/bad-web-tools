@@ -94,29 +94,8 @@ function performUnitOfWork(fiber) {
 
   // create new fibers
   const elements = fiber.props.children;
-  let index = 0;
-  let prevSibling = null;
-
-  while (index < elements.length) {
-    const element = elements[index];
-
-    const newFiber = {
-      type: element.type,
-      props: element.props,
-      parent: fiber,
-      dom: null,
-    }
-
-    // attach the new fibers
-    if (index === 0) {
-      fiber.child = newFiber;
-    } else {
-      prevSibling.sibling = newFiber;
-    }
-
-    prevSibling = newFiber;
-    index++;
-  }
+  
+  reconcileChildren(fiber, elements);
 
   // return next unit of work
   if (fiber.child) {
@@ -130,6 +109,32 @@ function performUnitOfWork(fiber) {
     }
 
     nextFiber = nextFiber.parent;
+  }
+}
+
+function reconcileChildren(wipFiber, elements) {
+  let index = 0;
+  let prevSibling = null;
+
+  while (index < elements.length) {
+    const element = elements[index];
+
+    const newFiber = {
+      type: element.type,
+      props: element.props,
+      parent: wipFiber,
+      dom: null,
+    }
+
+    // attach the new fibers
+    if (index === 0) {
+      wipFiber.child = newFiber;
+    } else {
+      prevSibling.sibling = newFiber;
+    }
+
+    prevSibling = newFiber;
+    index++;
   }
 }
 
