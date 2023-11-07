@@ -35,10 +35,12 @@ function createDom(fiber) {
 
 // check: does react also use a global for this?
 let nextUnitOfWork = null;
-let wipRoot = null;
+let currentRoot = null; // the last fiber tree we committed to the DOM
+let wipRoot = null; // used while building a new fiber tree
 
 function commitRoot() {
   commitWork(wipRoot.child); // calls itself recursively
+  currentRoot = wipRoot;
   wipRoot = null;
 }
 
@@ -58,7 +60,8 @@ function render(element, container) {
     dom: container,
     props: {
       children: [element],
-    }
+    },
+    alternate: currentRoot, // used to compare the old fiber tree to the new one
   }
   nextUnitOfWork = wipRoot;
 }
