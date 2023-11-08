@@ -14,11 +14,11 @@ jobs:
         with:
           node-version: 18
       - name: Install dependencies
-        run: npm install -g pnpm && cd 01-didact && pnpm install
+        run: npm install -g pnpm && pnpm -C 01-didact install
       - name: Install Playwright Browsers
-        run: pnpm exec playwright install --with-deps
+        run: pnpm -C 01-didact exec playwright install --with-deps
       - name: Run Playwright tests
-        run: cd 01-didact && pnpm e2e
+        run: pnpm -C 01-didact run e2e
       - uses: actions/upload-artifact@v3
         if: always()
         with:
