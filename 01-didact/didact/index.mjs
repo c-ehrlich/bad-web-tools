@@ -5,6 +5,6 @@ const Didact = {
   createElement,
   render,
   useState,
-}
+};
 
 export default Didact;

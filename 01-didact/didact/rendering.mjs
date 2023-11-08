@@ -1,17 +1,15 @@
-import { globals } from "./globals.mjs"
+import { globals } from "./globals.mjs";
 
 export function createElement(type, props, ...children) {
   return {
     type,
     props: {
       ...props,
-      children: children.map(child =>
-        typeof child === "object"
-          ? child
-          : createTextElement(child)
-      )
-    }
-  }
+      children: children.map((child) =>
+        typeof child === "object" ? child : createTextElement(child)
+      ),
+    },
+  };
 }
 
 function createTextElement(text) {
@@ -19,19 +17,20 @@ function createTextElement(text) {
     type: "TEXT_ELEMENT",
     props: {
       nodeValue: text,
-      children: []
-    }
-  }
+      children: [],
+    },
+  };
 }
 
 function createDom(fiber) {
-  const dom = fiber.type === "TEXT_ELEMENT"
-    ? document.createTextNode("")
-    : document.createElement(fiber.type);
-  
+  const dom =
+    fiber.type === "TEXT_ELEMENT"
+      ? document.createTextNode("")
+      : document.createElement(fiber.type);
+
   updateDom(dom, {}, fiber.props);
 
-  return dom
+  return dom;
 }
 
 function commitRoot() {
@@ -50,46 +49,36 @@ function updateDom(dom, prevProps, nextProps) {
   // remove old or changed event listeners
   Object.keys(prevProps)
     .filter(isEvent)
-    .filter(
-      key =>
-        !(key in nextProps) ||
-        isNew(prevProps, nextProps)(key)
-    )
-    .forEach(name => {
+    .filter((key) => !(key in nextProps) || isNew(prevProps, nextProps)(key))
+    .forEach((name) => {
       const eventType = name.toLowerCase().substring(2);
-      dom.removeEventListener(
-        eventType,
-        prevProps[name]
-      )
-    })
+      dom.removeEventListener(eventType, prevProps[name]);
+    });
 
   // add new event listeners
   Object.keys(nextProps)
     .filter(isEvent)
     .filter(isNew(prevProps, nextProps))
-    .forEach(name => {
+    .forEach((name) => {
       const eventType = name.toLowerCase().substring(2);
-      dom.addEventListener(
-        eventType,
-        nextProps[name],
-      )
-    })
+      dom.addEventListener(eventType, nextProps[name]);
+    });
 
   // remove old properties
   Object.keys(prevProps)
     .filter(isProperty)
     .filter(isGone(prevProps, nextProps))
-    .forEach(name => {
+    .forEach((name) => {
       dom[name] = "";
-    })
+    });
 
   // set new or changed properties
   Object.keys(nextProps)
     .filter(isProperty)
     .filter(isNew(prevProps, nextProps))
-    .forEach(name => {
+    .forEach((name) => {
       dom[name] = nextProps[name];
-    })
+    });
 }
 
 function commitWork(fiber) {
@@ -103,17 +92,13 @@ function commitWork(fiber) {
     domParentFiber = domParentFiber.parent;
   }
   const domParent = domParentFiber.dom;
-  
+
   if (fiber.effectTag === "PLACEMENT" && fiber.dom != null) {
     domParent.appendChild(fiber.dom);
   } else if (fiber.effectTag === "DELETION") {
     commitDeletion(fiber, domParent);
   } else if (fiber.effectTag === "UPDATE" && fiber.dom != null) {
-    updateDom(
-      fiber.dom,
-      fiber.alternate.props,
-      fiber.props
-    )
+    updateDom(fiber.dom, fiber.alternate.props, fiber.props);
   }
 
   commitWork(fiber.child);
@@ -135,7 +120,7 @@ export function render(element, container) {
       children: [element],
     },
     alternate: globals.currentRoot, // used to compare the old fiber tree to the new one
-  }
+  };
   globals.deletions = [];
   globals.nextUnitOfWork = globals.wipRoot;
 }
@@ -151,10 +136,10 @@ function workLoop(deadline) {
     commitRoot();
   }
 
-  requestIdleCallback(workLoop);
+  window.requestIdleCallback(workLoop);
 }
 
-requestIdleCallback(workLoop);
+window.requestIdleCallback(workLoop);
 
 function performUnitOfWork(fiber) {
   const isFunctionComponent = fiber.type instanceof Function;
@@ -172,7 +157,7 @@ function performUnitOfWork(fiber) {
   let nextFiber = fiber;
   while (nextFiber) {
     if (nextFiber.sibling) {
-      return nextFiber.sibling
+      return nextFiber.sibling;
     }
 
     nextFiber = nextFiber.parent;
@@ -199,17 +184,11 @@ function reconcileChildren(wipFiber, elements) {
   let oldFiber = wipFiber.alternate?.child;
   let prevSibling = null;
 
-  while (
-    index < elements.length ||
-    oldFiber != null
-  ) {
+  while (index < elements.length || oldFiber != null) {
     const element = elements[index];
     let newFiber = null;
 
-    const isSameType =
-      oldFiber &&
-      element &&
-      element.type === oldFiber.type;
+    const isSameType = oldFiber && element && element.type === oldFiber.type;
 
     // this is kinda naive and doesn't do key checking
 
@@ -222,7 +201,7 @@ function reconcileChildren(wipFiber, elements) {
         parent: wipFiber,
         alternate: oldFiber,
         effectTag: "UPDATE",
-      }
+      };
     }
 
     if (element && !isSameType) {
@@ -234,7 +213,7 @@ function reconcileChildren(wipFiber, elements) {
         parent: wipFiber,
         alternate: null,
         effectTag: "PLACEMENT",
-      }
+      };
     }
     if (oldFiber && !isSameType) {
       // delete the oldFiber's node
