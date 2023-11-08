@@ -1,26 +1,17 @@
 {
-  "name": "didact-app",
-  "version": "1.0.0",
-  "description": "based on https://pomb.us/build-your-own-react/",
-  "main": "main.js",
+  "private": true,
   "scripts": {
-    "e2e": "pnpm exec playwright test --project=chromium",
-    "e2e:ui": "pnpm exec playwright test --ui --project=chromium",
-    "e2e:debug": "pnpm exec playwright test --debug --project=chromium",
-    "test": "vitest",
-    "start": "http-server . -p 6969"
-  },
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "http-server": "^14.1.1"
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "devDependencies": {
-    "@playwright/test": "^1.39.0",
-    "@types/node": "^20.9.0",
-    "jsdom": "^22.1.0",
-    "typescript": "^5.2.2",
-    "vite": "^4.5.0",
-    "vitest": "^0.34.6"
-  }
+    "eslint": "^8.48.0",
+    "prettier": "^3.0.3",
+    "tsconfig": "workspace:*",
+    "turbo": "latest"
+  },
+  "packageManager": "pnpm@8.6.10",
+  "name": "build-react-turbo"
 }
