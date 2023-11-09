@@ -1,7 +1,5 @@
 import Didact from "didact";
 
-Didact.greet();
-
 function App(props) {
   return Didact.createElement(
     "div",

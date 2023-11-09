@@ -1,11 +1,10 @@
 import { createElement, render } from "./src/rendering.mjs";
-import { useState } from "./src/hooks.mjs";
+import { useState } from "./src/hooks";
 
 const Didact = {
   createElement,
   render,
   useState,
-  greet: () => console.log("hello world"),
 };
 
 export default Didact;
