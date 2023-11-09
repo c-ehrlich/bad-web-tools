@@ -1,0 +1,24 @@
+{
+  "name": "didact-example2",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "e2e": "pnpm exec playwright test --project=chromium",
+    "e2e:ui": "pnpm exec playwright test --ui --project=chromium",
+    "e2e:debug": "pnpm exec playwright test --debug --project=chromium"
+  },
+  "dependencies": {
+    "didact": "workspace:*"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.39.0",
+    "eslint-config-custom": "workspace:*",
+    "tsconfig": "workspace:*",
+    "typescript": "^5.0.2",
+    "vite": "^4.4.5"
+  }
+}
