@@ -1,5 +1,4 @@
-// @ts-check
-const { defineConfig, devices } = require("@playwright/test");
+import { defineConfig, devices } from "@playwright/test";
 
 /**
  * Read environment variables from file.
@@ -10,8 +9,8 @@ const { defineConfig, devices } = require("@playwright/test");
 /**
  * @see https://playwright.dev/docs/test-configuration
  */
-module.exports = defineConfig({
-  testDir: "./didact/__test__/e2e",
+export default defineConfig({
+  testDir: "./src/__test__/e2e",
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -29,7 +28,7 @@ module.exports = defineConfig({
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: "on-first-retry",
-    baseURL: "http://localhost:6969",
+    baseURL: "http://localhost:5173",
   },
 
   /* Configure projects for major browsers */
@@ -72,8 +71,8 @@ module.exports = defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: "pnpm start",
-    port: 6969,
+    command: "pnpm dev",
+    port: 5173,
     reuseExistingServer: !process.env.CI,
   },
 });
