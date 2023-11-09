@@ -1,6 +1,29 @@
-import { globals } from "./globals.mjs";
+import { globals } from "./globals";
 
-export function createElement(type, props, ...children) {
+type Fiber = {
+  type: ElementType;
+  props: Record<string, any>;
+  dom: HTMLElement | Text | null; // TODO: is this right?
+  parent: Fiber;
+  child?: Fiber;
+  sibling?: Fiber;
+  alternate?: Fiber;
+  effectTag?: "PLACEMENT" | "UPDATE" | "DELETION";
+};
+
+type ElementType = string;
+type ElementProps = Record<string, any>;
+
+type Element = {
+  type: ElementType;
+  props: { children: Array<Element> } & ElementProps;
+};
+
+export function createElement(
+  type: ElementType,
+  props: ElementProps,
+  ...children: Array<Element>
+) {
   return {
     type,
     props: {
@@ -12,7 +35,7 @@ export function createElement(type, props, ...children) {
   };
 }
 
-function createTextElement(text) {
+function createTextElement(text: string) {
   return {
     type: "TEXT_ELEMENT",
     props: {
@@ -22,7 +45,7 @@ function createTextElement(text) {
   };
 }
 
-function createDom(fiber) {
+function createDom(fiber: Fiber) {
   const dom =
     fiber.type === "TEXT_ELEMENT"
       ? document.createTextNode("")
@@ -40,8 +63,8 @@ function commitRoot() {
   globals.wipRoot = null;
 }
 
-const isEvent = (key) => key.startsWith("on"); // lol
-const isProperty = (key) => key !== "children" && !isEvent(key);
+const isEvent = (key: string) => key.startsWith("on"); // lol
+const isProperty = (key: string) => key !== "children" && !isEvent(key);
 const isNew = (prev, next) => (key) => prev[key] !== next[key];
 const isGone = (_prev, next) => (key) => !(key in next);
 
@@ -81,7 +104,7 @@ function updateDom(dom, prevProps, nextProps) {
     });
 }
 
-function commitWork(fiber) {
+function commitWork(fiber: Fiber) {
   if (!fiber) {
     return;
   }
@@ -172,14 +195,14 @@ function updateFunctionComponent(fiber) {
   reconcileChildren(fiber, children);
 }
 
-function updateHostComponent(fiber) {
+function updateHostComponent(fiber: Fiber) {
   if (!fiber.dom) {
     fiber.dom = createDom(fiber);
   }
   reconcileChildren(fiber, fiber.props.children);
 }
 
-function reconcileChildren(wipFiber, elements) {
+function reconcileChildren(wipFiber: Fiber, elements) {
   let index = 0;
   let oldFiber = wipFiber.alternate?.child;
   let prevSibling = null;

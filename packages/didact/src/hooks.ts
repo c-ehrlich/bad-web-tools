@@ -1,4 +1,4 @@
-import { globals } from "./globals.mjs";
+import { globals } from "./globals";
 
 type InitialState<TState> = TState | (() => TState);
 type SetStateAction<TState> = TState | ((prevState: TState) => TState);
