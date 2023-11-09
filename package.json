@@ -8,6 +8,7 @@
     "e2e": "turbo run e2e"
   },
   "devDependencies": {
+    "@playwright/test": "^1.39.0",
     "eslint": "^8.48.0",
     "prettier": "^3.0.3",
     "tsconfig": "workspace:*",
