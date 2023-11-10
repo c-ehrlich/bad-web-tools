@@ -23,8 +23,7 @@ export function useState<TState>(
   const setState = (action: SetStateAction<TState>) => {
     hook.queue.push(action);
     globals.wipRoot = {
-      dom: globals.currentRoot!.dom,
-      props: globals.currentRoot!.props,
+      ...globals.currentRoot!,
       alternate: globals.currentRoot!,
     };
     globals.nextUnitOfWork = globals.wipRoot;

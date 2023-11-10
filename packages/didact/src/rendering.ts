@@ -1,5 +1,12 @@
 import { globals } from "./globals";
-import { FiberDom, TextElement, ValidFiber, ValidHTMLElement } from "./types";
+import {
+  FiberDom,
+  FiberProps,
+  FiberPropsKey,
+  TextElement,
+  ValidFiber,
+  ValidHTMLElement,
+} from "./types";
 
 export function createElement<TElement extends ValidHTMLElement>(
   type: TElement,
@@ -41,17 +48,23 @@ function createDom(fiber: ValidFiber): HTMLElement | Text {
 
 function commitRoot() {
   globals.deletions.forEach(commitWork); // because the new tree doesn't have the nodes that need to be deleted
-  commitWork(globals.wipRoot.child); // calls itself recursively
+  commitWork(globals.wipRoot!.child); // calls itself recursively
   globals.currentRoot = globals.wipRoot;
   globals.wipRoot = null;
 }
 
 const isEvent = (key: string) => key.startsWith("on"); // lol
 const isProperty = (key: string) => key !== "children" && !isEvent(key);
-const isNew = (prev, next) => (key) => prev[key] !== next[key];
-const isGone = (_prev, next) => (key) => !(key in next);
+const isNew = (prev: FiberProps, next: FiberProps) => (key: FiberPropsKey) =>
+  prev[key] !== next[key];
+const isGone = (_prev: FiberProps, next: FiberProps) => (key: FiberPropsKey) =>
+  !(key in next);
 
-function updateDom(dom, prevProps, nextProps) {
+function updateDom(
+  dom: NonNullable<FiberDom>,
+  prevProps: FiberProps,
+  nextProps: FiberProps
+) {
   // remove old or changed event listeners
   Object.keys(prevProps)
     .filter(isEvent)
