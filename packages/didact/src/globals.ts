@@ -1,25 +1,21 @@
-let currentRoot = null; // the last fiber tree we committed to the DOM
-let deletions = null;
-let nextUnitOfWork = null;
-let wipRoot = null; // used while building a new fiber tree
+import { ValidFiber } from "./types";
 
-let hookIndex = null;
-let wipFiber = null;
+class Globals {
+  currentRoot: ValidFiber | null; // the last fiber tree we committed to the DOM
+  deletions: Array<ValidFiber>;
+  hookIndex = 0;
+  nextUnitOfWork: ValidFiber | null;
+  wipRoot: ValidFiber | null; // used while building a new fiber tree
+  wipFiber: ValidFiber | null;
 
-export const globals = {
-  currentRoot,
-  deletions,
-  hookIndex,
-  nextUnitOfWork,
-  wipFiber,
-  wipRoot,
-};
-
-export function resetGlobals() {
-  globals.currentRoot = null;
-  globals.deletions = null;
-  globals.hookIndex = null;
-  globals.nextUnitOfWork = null;
-  globals.wipFiber = null;
-  globals.wipRoot = null;
+  constructor() {
+    this.currentRoot = null;
+    this.deletions = [];
+    this.hookIndex = 0;
+    this.nextUnitOfWork = null;
+    this.wipFiber = null;
+    this.wipRoot = null;
+  }
 }
+
+export const globals = new Globals();
