@@ -5,8 +5,7 @@ export type Fiber<TElement extends ValidHTMLElement> = {
   type: TElement;
   props: HTMLElementTagNameMap[TElement]; // TODO: this doesn't seem to have the HTML element's props on it
   dom: FiberDom;
-} & //       nodeValue: string; //     props: { //     type: "TEXT_ELEMENT"; // | {
-//       children: [];
+} & //       children: []; //       nodeValue: string; //     props: { //     type: "TEXT_ELEMENT"; // | {
 //     };
 //     dom: Text; // TODO: is this right?
 //   }
@@ -40,3 +39,28 @@ export type UseStateHook<TState> = {
   state: TState;
   queue: Array<SetStateAction<TState>>;
 };
+
+// type GlobalEventHandlersMap = {
+//   [K in keyof GlobalEventHandlers]: GlobalEventHandlers[K]
+// };
+
+// // Then, we can extract the types for 'on...' properties only
+// type OnEventHandlersMap = Pick<GlobalEventHandlersMap, {
+//   [K in keyof GlobalEventHandlersMap]: K extends `on${string}` ? K : never
+// }[keyof GlobalEventHandlersMap]>;
+
+// Define a utility type to filter keys that start with 'on' from a given type T
+type EventHandlerKeys<T> = {
+  [K in keyof T]: K extends `on${infer _}` ? K : never;
+}[keyof T];
+
+// Create a type with all the 'on' event keys from GlobalEventHandlers
+export type GlobalOnEventHandlers = NonNullable<
+  EventHandlerKeys<GlobalEventHandlers>
+>;
+
+// Now, create a map type that has all the event handlers with their respective event types
+type OnEventHandlersMap = Pick<
+  GlobalEventHandlers,
+  NonNullable<GlobalOnEventHandlers>
+>;

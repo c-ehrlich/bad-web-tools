@@ -34,3 +34,14 @@ export function useState<TState>(
   globals.hookIndex++;
   return [hook.state, setState];
 }
+
+export function useEffect(
+  fn: () => void | (() => void),
+  deps: Array<any> // TODO: make this good
+) {
+  // run mount
+  // if deps changed, run unmount, then run mount
+  // run unmount on unmount
+  // we need to somehow build a list of mount and unmount functions for each fiber
+  // use globals.hooks? or fiber.hooks?
+}

@@ -3,6 +3,7 @@ import {
   FiberDom,
   FiberProps,
   FiberPropsKey,
+  GlobalOnEventHandlers,
   TextElement,
   ValidFiber,
   ValidHTMLElement,
@@ -53,7 +54,8 @@ function commitRoot() {
   globals.wipRoot = null;
 }
 
-const isEvent = (key: string) => key.startsWith("on"); // lol
+const isEvent = (key: string): key is GlobalOnEventHandlers =>
+  key.startsWith("on");
 const isProperty = (key: string) => key !== "children" && !isEvent(key);
 const isNew = (prev: FiberProps, next: FiberProps) => (key: FiberPropsKey) =>
   prev[key] !== next[key];
@@ -71,7 +73,10 @@ function updateDom(
     .filter((key) => !(key in nextProps) || isNew(prevProps, nextProps)(key))
     .forEach((name) => {
       const eventType = name.toLowerCase().substring(2);
-      dom.removeEventListener(eventType, prevProps[name]);
+      dom.removeEventListener(
+        eventType,
+        prevProps[name] as EventListenerOrEventListenerObject
+      );
     });
 
   // add new event listeners
@@ -80,7 +85,10 @@ function updateDom(
     .filter(isNew(prevProps, nextProps))
     .forEach((name) => {
       const eventType = name.toLowerCase().substring(2);
-      dom.addEventListener(eventType, nextProps[name]);
+      dom.addEventListener(
+        eventType,
+        nextProps[name] as EventListenerOrEventListenerObject
+      );
     });
 
   // remove old properties
