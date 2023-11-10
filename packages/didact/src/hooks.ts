@@ -1,13 +1,16 @@
 import { globals } from "./globals";
+import {
+  InitialState,
+  SetStateAction,
+  UseStateHook,
+  UseStateReturn,
+} from "./types";
 
-type InitialState<TState> = TState | (() => TState);
-type SetStateAction<TState> = TState | ((prevState: TState) => TState);
-type Dispatch<TValue> = (value: TValue) => void;
-type UseStateReturn<TState> = [TState, Dispatch<SetStateAction<TState>>];
-
-export function useState<T>(initial: InitialState<T>): UseStateReturn<T> {
-  const oldHook = globals.wipFiber.alternate?.hooks?.[globals.hookIndex];
-  const hook = {
+export function useState<TState>(
+  initial: InitialState<TState>
+): UseStateReturn<TState> {
+  const oldHook = globals.wipFiber?.alternate?.hooks?.[globals.hookIndex];
+  const hook: UseStateHook<TState> = {
     state: oldHook ? oldHook.state : initial,
     queue: [],
   };
@@ -17,18 +20,18 @@ export function useState<T>(initial: InitialState<T>): UseStateReturn<T> {
     hook.state = action(hook.state);
   });
 
-  const setState = (action) => {
+  const setState = (action: SetStateAction<TState>) => {
     hook.queue.push(action);
     globals.wipRoot = {
-      dom: globals.currentRoot.dom,
-      props: globals.currentRoot.props,
-      alternate: globals.currentRoot,
+      dom: globals.currentRoot!.dom,
+      props: globals.currentRoot!.props,
+      alternate: globals.currentRoot!,
     };
     globals.nextUnitOfWork = globals.wipRoot;
     globals.deletions = [];
   };
 
-  globals.wipFiber.hooks.push(hook);
+  globals.wipFiber!.hooks.push(hook);
   globals.hookIndex++;
   return [hook.state, setState];
 }

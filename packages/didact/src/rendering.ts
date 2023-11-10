@@ -1,28 +1,11 @@
 import { globals } from "./globals";
+import { FiberDom, TextElement, ValidFiber, ValidHTMLElement } from "./types";
 
-type Fiber = {
-  type: ElementType;
-  props: Record<string, any>;
-  dom: HTMLElement | Text | null; // TODO: is this right?
-  parent: Fiber;
-  child?: Fiber;
-  sibling?: Fiber;
-  alternate?: Fiber;
-  effectTag?: "PLACEMENT" | "UPDATE" | "DELETION";
-};
-
-type ElementType = string;
-type ElementProps = Record<string, any>;
-
-type Element = {
-  type: ElementType;
-  props: { children: Array<Element> } & ElementProps;
-};
-
-export function createElement(
-  type: ElementType,
-  props: ElementProps,
+export function createElement<TElement extends ValidHTMLElement>(
+  type: TElement,
+  props: HTMLElementTagNameMap[TElement],
   ...children: Array<Element>
+  // ...children: Array<Element<any, any>>
 ) {
   return {
     type,
@@ -35,7 +18,7 @@ export function createElement(
   };
 }
 
-function createTextElement(text: string) {
+function createTextElement(text: string): TextElement {
   return {
     type: "TEXT_ELEMENT",
     props: {
@@ -45,7 +28,7 @@ function createTextElement(text: string) {
   };
 }
 
-function createDom(fiber: Fiber) {
+function createDom(fiber: ValidFiber): HTMLElement | Text {
   const dom =
     fiber.type === "TEXT_ELEMENT"
       ? document.createTextNode("")
@@ -104,7 +87,7 @@ function updateDom(dom, prevProps, nextProps) {
     });
 }
 
-function commitWork(fiber: Fiber) {
+function commitWork(fiber: ValidFiber | undefined): void {
   if (!fiber) {
     return;
   }
@@ -128,15 +111,20 @@ function commitWork(fiber: Fiber) {
   commitWork(fiber.sibling);
 }
 
-function commitDeletion(fiber, domParent) {
-  if (fiber.dom) {
-    domParent.removeChild(fiber.dom);
+function commitDeletion(
+  fiber: ValidFiber | undefined,
+  domParent: FiberDom
+): void {
+  if (!fiber) return; // TODO: would this ever happen?
+
+  if (fiber?.dom) {
+    domParent?.removeChild(fiber.dom);
   } else {
     commitDeletion(fiber.child, domParent);
   }
 }
 
-export function render(element, container) {
+export function render(element: Element, container: HTMLElement): void {
   globals.wipRoot = {
     dom: container,
     props: {
@@ -148,11 +136,11 @@ export function render(element, container) {
   globals.nextUnitOfWork = globals.wipRoot;
 }
 
-function workLoop(deadline) {
+function workLoop(deadline: IdleDeadline): void {
   let shouldYield = false;
   while (globals.nextUnitOfWork && !shouldYield) {
     globals.nextUnitOfWork = performUnitOfWork(globals.nextUnitOfWork);
-    shouldYield = deadline.timeRemaining() < 1;
+    shouldYield = deadline.timeRemaining() < 1; // TODO: what is that function?
   }
 
   if (!globals.nextUnitOfWork && globals.wipRoot) {
@@ -164,8 +152,8 @@ function workLoop(deadline) {
 
 window.requestIdleCallback(workLoop);
 
-function performUnitOfWork(fiber) {
-  const isFunctionComponent = fiber.type instanceof Function;
+function performUnitOfWork(fiber: ValidFiber): ValidFiber | null {
+  const isFunctionComponent = fiber.type instanceof Function; // TODO: is this possible????
   if (isFunctionComponent) {
     updateFunctionComponent(fiber);
   } else {
@@ -185,9 +173,11 @@ function performUnitOfWork(fiber) {
 
     nextFiber = nextFiber.parent;
   }
+
+  return null;
 }
 
-function updateFunctionComponent(fiber) {
+function updateFunctionComponent(fiber: ValidFiber) {
   globals.wipFiber = fiber;
   globals.hookIndex = 0;
   globals.wipFiber.hooks = [];
@@ -195,24 +185,25 @@ function updateFunctionComponent(fiber) {
   reconcileChildren(fiber, children);
 }
 
-function updateHostComponent(fiber: Fiber) {
+function updateHostComponent(fiber: Fiber<ValidHTMLElement>) {
   if (!fiber.dom) {
     fiber.dom = createDom(fiber);
   }
   reconcileChildren(fiber, fiber.props.children);
 }
 
-function reconcileChildren(wipFiber: Fiber, elements) {
+function reconcileChildren(wipFiber: Fiber<ValidHTMLElement>, elements): void {
   let index = 0;
   let oldFiber = wipFiber.alternate?.child;
   let prevSibling = null;
 
-  while (index < elements.length || oldFiber != null) {
+  while (index < elements.length || isNonNullish(oldFiber)) {
     const element = elements[index];
-    let newFiber = null;
+    let newFiber: Fiber<ValidHTMLElement> | null = null;
 
-    const isSameType = oldFiber && element && element.type === oldFiber.type;
-
+    const isSameType =
+      isNonNullish(oldFiber) && element && element.type === oldFiber.type;
+    oldFiber;
     // this is kinda naive and doesn't do key checking
 
     if (isSameType) {
@@ -220,7 +211,7 @@ function reconcileChildren(wipFiber: Fiber, elements) {
       newFiber = {
         type: oldFiber.type,
         props: element.props,
-        dom: oldFiber.dom,
+        dom: oldFiber?.dom ?? null,
         parent: wipFiber,
         alternate: oldFiber,
         effectTag: "UPDATE",
@@ -258,4 +249,8 @@ function reconcileChildren(wipFiber: Fiber, elements) {
     prevSibling = newFiber;
     index++;
   }
+}
+
+function isNonNullish<T>(value: T): value is NonNullable<T> {
+  return value != null;
 }
