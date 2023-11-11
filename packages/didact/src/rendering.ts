@@ -1,6 +1,21 @@
-import { globals } from "./globals.mjs";
+import { globals } from "./globals";
+import {
+  ElementProps,
+  FiberDom,
+  FiberProps,
+  FiberPropsKey,
+  GlobalOnEventHandlers,
+  NonNullableFiberProps,
+  TextElement,
+  ValidFiber,
+  ValidHTMLElement,
+} from "./types";
 
-export function createElement(type, props, ...children) {
+export function createElement<TElement extends ValidHTMLElement>(
+  type: TElement,
+  props: ElementProps<TElement>,
+  ...children: Array<Element>
+) {
   return {
     type,
     props: {
@@ -12,7 +27,7 @@ export function createElement(type, props, ...children) {
   };
 }
 
-function createTextElement(text) {
+function createTextElement(text: string): TextElement {
   return {
     type: "TEXT_ELEMENT",
     props: {
@@ -22,7 +37,7 @@ function createTextElement(text) {
   };
 }
 
-function createDom(fiber) {
+function createDom(fiber: ValidFiber): HTMLElement | Text {
   const dom =
     fiber.type === "TEXT_ELEMENT"
       ? document.createTextNode("")
@@ -35,53 +50,77 @@ function createDom(fiber) {
 
 function commitRoot() {
   globals.deletions.forEach(commitWork); // because the new tree doesn't have the nodes that need to be deleted
-  commitWork(globals.wipRoot.child); // calls itself recursively
+  commitWork(globals.wipRoot!.child); // calls itself recursively
   globals.currentRoot = globals.wipRoot;
   globals.wipRoot = null;
 }
 
-const isEvent = (key) => key.startsWith("on"); // lol
-const isProperty = (key) => key !== "children" && !isEvent(key);
-const isNew = (prev, next) => (key) => prev[key] !== next[key];
-const isGone = (_prev, next) => (key) => !(key in next);
+const isEvent = (key: string): key is GlobalOnEventHandlers =>
+  key.startsWith("on");
+const isProperty = (key: string) => key !== "children" && !isEvent(key);
+const isNew =
+  (prev: Record<string, unknown>, next: Record<string, unknown>) =>
+  (key: FiberPropsKey) =>
+    prev[key] !== next[key];
+const isGone =
+  (_prev: Record<string, unknown>, next: Record<string, unknown>) =>
+  (key: FiberPropsKey) =>
+    !(key in next);
 
-function updateDom(dom, prevProps, nextProps) {
+function updateDom(
+  dom: NonNullable<FiberDom>,
+  prevProps: FiberProps,
+  nextProps: FiberProps
+) {
+  const nonNullablePrevProps = makeEmptyObjectIfNullable(prevProps);
+  const nonNullableNextProps = makeEmptyObjectIfNullable(nextProps);
+
   // remove old or changed event listeners
-  Object.keys(prevProps)
+  Object.keys(nonNullablePrevProps)
     .filter(isEvent)
-    .filter((key) => !(key in nextProps) || isNew(prevProps, nextProps)(key))
+    .filter(
+      (key) =>
+        !(key in nonNullableNextProps) ||
+        isNew(nonNullablePrevProps, nonNullableNextProps)(key)
+    )
     .forEach((name) => {
       const eventType = name.toLowerCase().substring(2);
-      dom.removeEventListener(eventType, prevProps[name]);
+      dom.removeEventListener(
+        eventType,
+        nonNullablePrevProps[name] as EventListenerOrEventListenerObject
+      );
     });
 
   // add new event listeners
-  Object.keys(nextProps)
+  Object.keys(nonNullableNextProps)
     .filter(isEvent)
-    .filter(isNew(prevProps, nextProps))
+    .filter(isNew(nonNullablePrevProps, nonNullableNextProps))
     .forEach((name) => {
       const eventType = name.toLowerCase().substring(2);
-      dom.addEventListener(eventType, nextProps[name]);
+      dom.addEventListener(
+        eventType,
+        nonNullableNextProps[name] as EventListenerOrEventListenerObject
+      );
     });
 
   // remove old properties
-  Object.keys(prevProps)
+  Object.keys(nonNullablePrevProps)
     .filter(isProperty)
-    .filter(isGone(prevProps, nextProps))
+    .filter(isGone(nonNullablePrevProps, nonNullableNextProps))
     .forEach((name) => {
       dom[name] = "";
     });
 
   // set new or changed properties
-  Object.keys(nextProps)
+  Object.keys(nonNullableNextProps)
     .filter(isProperty)
-    .filter(isNew(prevProps, nextProps))
+    .filter(isNew(nonNullablePrevProps, nonNullableNextProps))
     .forEach((name) => {
-      dom[name] = nextProps[name];
+      dom[name] = nonNullableNextProps[name];
     });
 }
 
-function commitWork(fiber) {
+function commitWork(fiber: ValidFiber | undefined): void {
   if (!fiber) {
     return;
   }
@@ -98,22 +137,27 @@ function commitWork(fiber) {
   } else if (fiber.effectTag === "DELETION") {
     commitDeletion(fiber, domParent);
   } else if (fiber.effectTag === "UPDATE" && fiber.dom != null) {
-    updateDom(fiber.dom, fiber.alternate.props, fiber.props);
+    updateDom(fiber.dom, fiber.alternate!.props, fiber.props);
   }
 
   commitWork(fiber.child);
   commitWork(fiber.sibling);
 }
 
-function commitDeletion(fiber, domParent) {
-  if (fiber.dom) {
-    domParent.removeChild(fiber.dom);
+function commitDeletion(
+  fiber: ValidFiber | undefined,
+  domParent: FiberDom
+): void {
+  if (!fiber) return; // TODO: would this ever happen?
+
+  if (fiber?.dom) {
+    domParent?.removeChild(fiber.dom);
   } else {
     commitDeletion(fiber.child, domParent);
   }
 }
 
-export function render(element, container) {
+export function render(element: Element, container: HTMLElement): void {
   globals.wipRoot = {
     dom: container,
     props: {
@@ -125,11 +169,11 @@ export function render(element, container) {
   globals.nextUnitOfWork = globals.wipRoot;
 }
 
-function workLoop(deadline) {
+function workLoop(deadline: IdleDeadline): void {
   let shouldYield = false;
   while (globals.nextUnitOfWork && !shouldYield) {
     globals.nextUnitOfWork = performUnitOfWork(globals.nextUnitOfWork);
-    shouldYield = deadline.timeRemaining() < 1;
+    shouldYield = deadline.timeRemaining() < 1; // TODO: what is that function?
   }
 
   if (!globals.nextUnitOfWork && globals.wipRoot) {
@@ -141,8 +185,8 @@ function workLoop(deadline) {
 
 window.requestIdleCallback(workLoop);
 
-function performUnitOfWork(fiber) {
-  const isFunctionComponent = fiber.type instanceof Function;
+function performUnitOfWork(fiber: ValidFiber): ValidFiber | null {
+  const isFunctionComponent = fiber.type instanceof Function; // TODO: is this possible????
   if (isFunctionComponent) {
     updateFunctionComponent(fiber);
   } else {
@@ -162,34 +206,38 @@ function performUnitOfWork(fiber) {
 
     nextFiber = nextFiber.parent;
   }
+
+  return null;
 }
 
-function updateFunctionComponent(fiber) {
+function updateFunctionComponent(fiber: ValidFiber) {
   globals.wipFiber = fiber;
   globals.hookIndex = 0;
   globals.wipFiber.hooks = [];
+  // fiber.type is the function here
   const children = [fiber.type(fiber.props)];
   reconcileChildren(fiber, children);
 }
 
-function updateHostComponent(fiber) {
+function updateHostComponent(fiber: Fiber<ValidHTMLElement>) {
   if (!fiber.dom) {
     fiber.dom = createDom(fiber);
   }
   reconcileChildren(fiber, fiber.props.children);
 }
 
-function reconcileChildren(wipFiber, elements) {
+function reconcileChildren(wipFiber: Fiber<ValidHTMLElement>, elements): void {
   let index = 0;
   let oldFiber = wipFiber.alternate?.child;
   let prevSibling = null;
 
-  while (index < elements.length || oldFiber != null) {
+  while (index < elements.length || isNonNullable(oldFiber)) {
     const element = elements[index];
-    let newFiber = null;
+    let newFiber: Fiber<ValidHTMLElement> | null = null;
 
-    const isSameType = oldFiber && element && element.type === oldFiber.type;
-
+    const isSameType =
+      isNonNullable(oldFiber) && element && element.type === oldFiber.type;
+    oldFiber;
     // this is kinda naive and doesn't do key checking
 
     if (isSameType) {
@@ -197,7 +245,7 @@ function reconcileChildren(wipFiber, elements) {
       newFiber = {
         type: oldFiber.type,
         props: element.props,
-        dom: oldFiber.dom,
+        dom: oldFiber?.dom ?? null,
         parent: wipFiber,
         alternate: oldFiber,
         effectTag: "UPDATE",
@@ -235,4 +283,20 @@ function reconcileChildren(wipFiber, elements) {
     prevSibling = newFiber;
     index++;
   }
+}
+
+function isNonNullable<T>(value: T): value is NonNullable<T> {
+  return value !== null && value !== undefined;
+}
+
+function isNullable(value: any): value is null | undefined {
+  return value === null || value === undefined;
+}
+
+function makeEmptyObjectIfNullable<T>(value: T): NonNullable<T> {
+  if (isNonNullable(value)) {
+    return value;
+  }
+
+  return {} as NonNullable<T>;
 }
