@@ -1,9 +1,11 @@
 import { globals } from "./globals";
 import {
+  ElementProps,
   FiberDom,
   FiberProps,
   FiberPropsKey,
   GlobalOnEventHandlers,
+  NonNullableFiberProps,
   TextElement,
   ValidFiber,
   ValidHTMLElement,
@@ -11,9 +13,8 @@ import {
 
 export function createElement<TElement extends ValidHTMLElement>(
   type: TElement,
-  props: HTMLElementTagNameMap[TElement],
+  props: ElementProps<TElement>,
   ...children: Array<Element>
-  // ...children: Array<Element<any, any>>
 ) {
   return {
     type,
@@ -57,54 +58,65 @@ function commitRoot() {
 const isEvent = (key: string): key is GlobalOnEventHandlers =>
   key.startsWith("on");
 const isProperty = (key: string) => key !== "children" && !isEvent(key);
-const isNew = (prev: FiberProps, next: FiberProps) => (key: FiberPropsKey) =>
-  prev[key] !== next[key];
-const isGone = (_prev: FiberProps, next: FiberProps) => (key: FiberPropsKey) =>
-  !(key in next);
+const isNew =
+  (prev: Record<string, unknown>, next: Record<string, unknown>) =>
+  (key: FiberPropsKey) =>
+    prev[key] !== next[key];
+const isGone =
+  (_prev: Record<string, unknown>, next: Record<string, unknown>) =>
+  (key: FiberPropsKey) =>
+    !(key in next);
 
 function updateDom(
   dom: NonNullable<FiberDom>,
   prevProps: FiberProps,
   nextProps: FiberProps
 ) {
+  const nonNullablePrevProps = makeEmptyObjectIfNullable(prevProps);
+  const nonNullableNextProps = makeEmptyObjectIfNullable(nextProps);
+
   // remove old or changed event listeners
-  Object.keys(prevProps)
+  Object.keys(nonNullablePrevProps)
     .filter(isEvent)
-    .filter((key) => !(key in nextProps) || isNew(prevProps, nextProps)(key))
+    .filter(
+      (key) =>
+        !(key in nonNullableNextProps) ||
+        isNew(nonNullablePrevProps, nonNullableNextProps)(key)
+    )
     .forEach((name) => {
       const eventType = name.toLowerCase().substring(2);
       dom.removeEventListener(
         eventType,
-        prevProps[name] as EventListenerOrEventListenerObject
+        nonNullablePrevProps[name] as EventListenerOrEventListenerObject
       );
     });
 
   // add new event listeners
-  Object.keys(nextProps)
+  Object.keys(nonNullableNextProps)
     .filter(isEvent)
-    .filter(isNew(prevProps, nextProps))
+    .filter(isNew(nonNullablePrevProps, nonNullableNextProps))
     .forEach((name) => {
       const eventType = name.toLowerCase().substring(2);
       dom.addEventListener(
         eventType,
-        nextProps[name] as EventListenerOrEventListenerObject
+        nonNullableNextProps[name] as EventListenerOrEventListenerObject
       );
     });
 
   // remove old properties
-  Object.keys(prevProps)
+  Object.keys(nonNullablePrevProps)
     .filter(isProperty)
-    .filter(isGone(prevProps, nextProps))
+    .filter(isGone(nonNullablePrevProps, nonNullableNextProps))
     .forEach((name) => {
       dom[name] = "";
     });
 
   // set new or changed properties
-  Object.keys(nextProps)
+  Object.keys(nonNullableNextProps)
     .filter(isProperty)
-    .filter(isNew(prevProps, nextProps))
+    .filter(isNew(nonNullablePrevProps, nonNullableNextProps))
     .forEach((name) => {
-      dom[name] = nextProps[name];
+      dom[name] = nonNullableNextProps[name];
     });
 }
 
@@ -125,7 +137,7 @@ function commitWork(fiber: ValidFiber | undefined): void {
   } else if (fiber.effectTag === "DELETION") {
     commitDeletion(fiber, domParent);
   } else if (fiber.effectTag === "UPDATE" && fiber.dom != null) {
-    updateDom(fiber.dom, fiber.alternate.props, fiber.props);
+    updateDom(fiber.dom, fiber.alternate!.props, fiber.props);
   }
 
   commitWork(fiber.child);
@@ -202,6 +214,7 @@ function updateFunctionComponent(fiber: ValidFiber) {
   globals.wipFiber = fiber;
   globals.hookIndex = 0;
   globals.wipFiber.hooks = [];
+  // fiber.type is the function here
   const children = [fiber.type(fiber.props)];
   reconcileChildren(fiber, children);
 }
@@ -218,12 +231,12 @@ function reconcileChildren(wipFiber: Fiber<ValidHTMLElement>, elements): void {
   let oldFiber = wipFiber.alternate?.child;
   let prevSibling = null;
 
-  while (index < elements.length || isNonNullish(oldFiber)) {
+  while (index < elements.length || isNonNullable(oldFiber)) {
     const element = elements[index];
     let newFiber: Fiber<ValidHTMLElement> | null = null;
 
     const isSameType =
-      isNonNullish(oldFiber) && element && element.type === oldFiber.type;
+      isNonNullable(oldFiber) && element && element.type === oldFiber.type;
     oldFiber;
     // this is kinda naive and doesn't do key checking
 
@@ -272,6 +285,18 @@ function reconcileChildren(wipFiber: Fiber<ValidHTMLElement>, elements): void {
   }
 }
 
-function isNonNullish<T>(value: T): value is NonNullable<T> {
-  return value != null;
+function isNonNullable<T>(value: T): value is NonNullable<T> {
+  return value !== null && value !== undefined;
+}
+
+function isNullable(value: any): value is null | undefined {
+  return value === null || value === undefined;
+}
+
+function makeEmptyObjectIfNullable<T>(value: T): NonNullable<T> {
+  if (isNonNullable(value)) {
+    return value;
+  }
+
+  return {} as NonNullable<T>;
 }

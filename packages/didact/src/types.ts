@@ -1,25 +1,35 @@
 export type ValidHTMLElement = keyof HTMLElementTagNameMap;
+// TODO: is it more work to have this nullable or not nullable?
+export type ElementProps<TElement extends ValidHTMLElement> = Partial<
+  HTMLElementTagNameMap[TElement]
+> | null;
 
 export type FiberDom = HTMLElement | Text | null; // TODO: is this right?
-export type Fiber<TElement extends ValidHTMLElement> = {
-  type: TElement;
-  props: HTMLElementTagNameMap[TElement]; // TODO: this doesn't seem to have the HTML element's props on it
-  dom: FiberDom;
-} & //       children: []; //       nodeValue: string; //     props: { //     type: "TEXT_ELEMENT"; // | {
-//     };
-//     dom: Text; // TODO: is this right?
-//   }
-// TODO: figure out why having the TEXT_ELEMENT type in here breaks it
-{
-  parent: Fiber<ValidHTMLElement>; // TODO: does the root have a parent?
-  child?: Fiber<ValidHTMLElement>; // TODO: can a text element have children?
-  sibling?: Fiber<ValidHTMLElement>;
-  alternate?: Fiber<ValidHTMLElement>;
-  effectTag?: "PLACEMENT" | "UPDATE" | "DELETION";
-  hooks: Array<UseStateHook<any>>;
-};
+export type Fiber<TElement extends ValidHTMLElement> =
+  // TODO: figure out why having the TEXT_ELEMENT type in here breaks it
+  (
+    | {
+        type: Function;
+        props: Record<string, any>;
+        dom: FiberDom;
+      }
+    | {
+        type: TElement;
+        props: ElementProps<TElement>;
+        dom: FiberDom;
+      }
+  ) & {
+    parent: Fiber<ValidHTMLElement>; // TODO: does the root have a parent?
+    child?: Fiber<ValidHTMLElement>; // TODO: can a text element have children?
+    sibling?: Fiber<ValidHTMLElement>;
+    alternate?: Fiber<ValidHTMLElement>;
+    effectTag?: "PLACEMENT" | "UPDATE" | "DELETION";
+    hooks: Array<UseStateHook<any>>;
+  };
+
 export type ValidFiber = Fiber<ValidHTMLElement>;
-export type FiberProps = NonNullable<ValidFiber["props"]>;
+export type FiberProps = ValidFiber["props"] | Record<string, any> | null;
+export type NonNullableFiberProps = NonNullable<FiberProps>;
 export type FiberPropsKey = keyof FiberProps;
 
 export type TextElement = {
@@ -39,15 +49,6 @@ export type UseStateHook<TState> = {
   state: TState;
   queue: Array<SetStateAction<TState>>;
 };
-
-// type GlobalEventHandlersMap = {
-//   [K in keyof GlobalEventHandlers]: GlobalEventHandlers[K]
-// };
-
-// // Then, we can extract the types for 'on...' properties only
-// type OnEventHandlersMap = Pick<GlobalEventHandlersMap, {
-//   [K in keyof GlobalEventHandlersMap]: K extends `on${string}` ? K : never
-// }[keyof GlobalEventHandlersMap]>;
 
 // Define a utility type to filter keys that start with 'on' from a given type T
 type EventHandlerKeys<T> = {
